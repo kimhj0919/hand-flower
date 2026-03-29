@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Hand Flower Interaction</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; }
+        canvas { display: block; }
+        .instruction {
+            position: absolute; top: 20px; left: 20px;
+            color: white; font-family: sans-serif;
+            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="instruction">카메라를 허용하고 손바닥을 펼쳐보세요!</div>
+    <script>
+        let hands;
+        let camera;
+        let handLandmarks = null;
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            
+            // MediaPipe Hands 설정
+            hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(results => {
+                handLandmarks = results.multiHandLandmarks[0];
+            });
+
+            // 카메라 설정
+            const videoElement = document.createElement('video');
+            camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 640,
+                height: 480
+            });
+            camera.start();
+        }
+
+        function draw() {
+            background(30, 30, 40);
+
+            if (handLandmarks) {
+                // 손바닥(0)과 중지 끝(12) 사이의 거리 계산
+                let d = dist(handLandmarks[0].x, handLandmarks[0].y, handLandmarks[12].x, handLandmarks[12].y);
+                
+                // 거리 값을 0~1 사이로 매핑 (0.1~0.4는 예시값, 환경에 따라 조절)
+                let openAmount = map(d, 0.1, 0.35, 0, 1, true);
+                
+                drawFlower(width / 2, height / 2, openAmount);
+            } else {
+                fill(255);
+                textAlign(CENTER);
+                text("손을 찾는 중...", width/2, height/2);
+            }
+        }
+
+        function drawFlower(x, y, open) {
+            push();
+            translate(x, y);
+            noStroke();
+            
+            // 꽃잎 8개 그리기
+            for (let i = 0; i < 8; i++) {
+                push();
+                rotate(TWO_PI / 8 * i);
+                
+                // 꽃잎 색상 (펴질수록 밝아짐)
+                fill(255, 100 + open * 155, 150 + open * 100, 200);
+                
+                // open 값에 따라 꽃잎이 바깥으로 기울어짐
+                let angle = map(open, 0, 1, 0, 0.8);
+                rotate(angle);
+                
+                // 꽃잎 모양
+                ellipse(0, -50 * open, 30 + 20 * open, 60 + 40 * open);
+                pop();
+            }
+            
+            // 꽃술
+            fill(255, 200, 0);
+            circle(0, 0, 30 + 10 * open);
+            pop();
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
